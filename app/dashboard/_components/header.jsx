@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import React, { useEffect } from 'react'
 
-function header() {
+function Header() {
     const path = usePathname();
     useEffect(() => {
         console.log(path)
@@ -40,4 +40,4 @@ function header() {
     )
 }
 
-export default header
+export default Header
