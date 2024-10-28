@@ -8,6 +8,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog"
+const router = useRouter();
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from '@/components/ui/button'
@@ -18,6 +19,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useUser } from '@clerk/nextjs'
 import moment from 'moment'
 import { db } from '@/utils/db'
+import { useRouter } from 'next/router'
 
 
 const AddNewInterview = () => {
@@ -28,21 +30,21 @@ const AddNewInterview = () => {
     const [jobExperience, setJobExperience] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [jsonResponse, setJsonResponse] = useState([]); 
-    const {user} = useUser();
+    const [jsonResponse, setJsonResponse] = useState([]);
+    const { user } = useUser();
 
     const cleanJsonString = (str) => {
         try {
             // Remove markdown formatting
             let cleaned = str.replace(/```json\n?|\n?```/g, '').trim();
-            
+
             // Find the first '[' and last ']'
             const start = cleaned.indexOf('[');
             const end = cleaned.lastIndexOf(']') + 1;
-            
+
             if (start !== -1 && end !== -1) {
                 cleaned = cleaned.slice(start, end);
-                
+
                 // Replace problematic characters and escape quotes properly
                 cleaned = cleaned
                     .replace(/[\u0000-\u0019]+/g, "") // Remove control characters
@@ -51,7 +53,7 @@ const AddNewInterview = () => {
                     .replace(/"/g, '"') // Normalize quotes
                     .replace(/`/g, "'") // Replace backticks with single quotes
                     .replace(/\\(?!["\\/bfnrt])/g, ""); // Remove invalid escapes
-                
+
                 // Test if it's valid JSON
                 JSON.parse(cleaned);
                 return cleaned;
@@ -90,39 +92,43 @@ Position details:
 
             const result = await chatSession.sendMessage(InputPrompt);
             const responseText = result.response.text();
-            
+
             // Log the raw response for debugging
             // console.log("Raw API response:", responseText);
-            
+
             // Clean and parse the JSON
             const cleanedJson = cleanJsonString(responseText);
             // console.log("Cleaned JSON:", cleanedJson);
-            
+
             const parsedJson = JSON.parse(cleanedJson);
             console.log("Successfully parsed JSON:", parsedJson);
             setJsonResponse(parsedJson);
 
-            if(parsedJson){
-                const resp =await db.insert(MockInterview)
-                .values({
-                    mockId:uuidv4(),
-                    jsonMockRes:parsedJson,
-                    jobPosition:jobPosition,
-                    jobDesc:jobDesc,
-                    jobExperience:jobExperience,
-                    createdBy:user?.primaryEmailAddress?.emailAddress,
-                    createdAt:moment().format('DD-MM-yyyy')
-                }).returning({mockId:MockInterview.mockId});
-    
+            if (parsedJson) {
+                const resp = await db.insert(MockInterview)
+                    .values({
+                        mockId: uuidv4(),
+                        jsonMockRes: parsedJson,
+                        jobPosition: jobPosition,
+                        jobDesc: jobDesc,
+                        jobExperience: jobExperience,
+                        createdBy: user?.primaryEmailAddress?.emailAddress,
+                        createdAt: moment().format('DD-MM-yyyy')
+                    }).returning({ mockId: MockInterview.mockId });
+
                 console.log("Inserted ID", resp);
-            }else{
+                if(resp){
+                    setOpenDialog(false);
+                    router.push('/dashboard/interview/'+resp[0]?.mockId);
+                }
+            } else {
                 console.log("ERROR")
             }
-            
+
 
 
             // Handle successful parsing here (e.g., save to state or pass to parent)
-            
+
             handleDialogClose(); // Close dialog on success
 
         } catch (error) {
@@ -158,8 +164,8 @@ Position details:
                         <div>
                             <div className='mt-7 my-3'>
                                 <label>Job Role/Job Position</label>
-                                <Input 
-                                    placeholder="Ex. Full-Stack Developer" 
+                                <Input
+                                    placeholder="Ex. Full-Stack Developer"
                                     required
                                     value={jobPosition}
                                     onChange={(event) => setJobPosition(event.target.value)}
@@ -167,8 +173,8 @@ Position details:
                             </div>
                             <div className='my-3'>
                                 <label>Job Description/Tech Stack (In Short)</label>
-                                <Textarea 
-                                    placeholder="Ex. React, Angular, Node.js, MySQL..." 
+                                <Textarea
+                                    placeholder="Ex. React, Angular, Node.js, MySQL..."
                                     required
                                     value={jobDesc}
                                     onChange={(event) => setJobDesc(event.target.value)}
@@ -176,11 +182,11 @@ Position details:
                             </div>
                             <div className='my-3'>
                                 <label>Years of Experience</label>
-                                <Input 
-                                    placeholder="Ex. 5" 
-                                    type="number" 
-                                    max="20" 
-                                    min="0" 
+                                <Input
+                                    placeholder="Ex. 5"
+                                    type="number"
+                                    max="20"
+                                    min="0"
                                     required
                                     value={jobExperience}
                                     onChange={(event) => setJobExperience(event.target.value)}
