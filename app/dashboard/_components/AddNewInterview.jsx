@@ -6,9 +6,7 @@ import {
     DialogDescription,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog"
-const router = useRouter();
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from '@/components/ui/button'
@@ -19,12 +17,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { useUser } from '@clerk/nextjs'
 import moment from 'moment'
 import { db } from '@/utils/db'
-import { useRouter } from 'next/router'
-
+import { useRouter } from 'next/navigation'
 
 const AddNewInterview = () => {
+    const router = useRouter();
     const [openDialog, setOpenDialog] = useState(false);
-    const handleDialogClose = () => setOpenDialog(false);
     const [jobPosition, setJobPosition] = useState('');
     const [jobDesc, setJobDesc] = useState('');
     const [jobExperience, setJobExperience] = useState('');
@@ -35,33 +32,26 @@ const AddNewInterview = () => {
 
     const cleanJsonString = (str) => {
         try {
-            // Remove markdown formatting
             let cleaned = str.replace(/```json\n?|\n?```/g, '').trim();
-
-            // Find the first '[' and last ']'
             const start = cleaned.indexOf('[');
             const end = cleaned.lastIndexOf(']') + 1;
 
             if (start !== -1 && end !== -1) {
                 cleaned = cleaned.slice(start, end);
-
-                // Replace problematic characters and escape quotes properly
                 cleaned = cleaned
-                    .replace(/[\u0000-\u0019]+/g, "") // Remove control characters
-                    .replace(/\\n/g, " ") // Replace newlines with spaces
-                    .replace(/\\"/g, '"') // Fix escaped quotes
-                    .replace(/"/g, '"') // Normalize quotes
-                    .replace(/`/g, "'") // Replace backticks with single quotes
-                    .replace(/\\(?!["\\/bfnrt])/g, ""); // Remove invalid escapes
+                    .replace(/[\u0000-\u0019]+/g, "")
+                    .replace(/\\n/g, " ")
+                    .replace(/\\"/g, '"')
+                    .replace(/"/g, '"')
+                    .replace(/`/g, "'")
+                    .replace(/\\(?!["\\/bfnrt])/g, "");
 
-                // Test if it's valid JSON
                 JSON.parse(cleaned);
                 return cleaned;
             }
             throw new Error("No valid JSON array found");
         } catch (error) {
             console.error("JSON cleaning error:", error);
-            console.log("Problematic string:", str);
             throw error;
         }
     };
@@ -72,7 +62,6 @@ const AddNewInterview = () => {
         setError('');
 
         try {
-            // Escape special characters in the input
             const safeJobPosition = jobPosition.replace(/["\n\r]/g, ' ');
             const safeJobDesc = jobDesc.replace(/["\n\r]/g, ' ');
             const safeJobExperience = jobExperience.toString();
@@ -92,22 +81,15 @@ Position details:
 
             const result = await chatSession.sendMessage(InputPrompt);
             const responseText = result.response.text();
-
-            // Log the raw response for debugging
-            // console.log("Raw API response:", responseText);
-
-            // Clean and parse the JSON
             const cleanedJson = cleanJsonString(responseText);
-            // console.log("Cleaned JSON:", cleanedJson);
-
             const parsedJson = JSON.parse(cleanedJson);
-            console.log("Successfully parsed JSON:", parsedJson);
             setJsonResponse(parsedJson);
 
             if (parsedJson) {
+                const mockId = uuidv4();
                 const resp = await db.insert(MockInterview)
                     .values({
-                        mockId: uuidv4(),
+                        mockId: mockId,
                         jsonMockRes: parsedJson,
                         jobPosition: jobPosition,
                         jobDesc: jobDesc,
@@ -116,21 +98,12 @@ Position details:
                         createdAt: moment().format('DD-MM-yyyy')
                     }).returning({ mockId: MockInterview.mockId });
 
-                console.log("Inserted ID", resp);
-                if(resp){
+                if (resp && resp[0]?.mockId) {
                     setOpenDialog(false);
-                    router.push('/dashboard/interview/'+resp[0]?.mockId);
+                    // Updated navigation method for App Router
+                    router.push(`/dashboard/interview/${resp[0].mockId}`);
                 }
-            } else {
-                console.log("ERROR")
             }
-
-
-
-            // Handle successful parsing here (e.g., save to state or pass to parent)
-
-            handleDialogClose(); // Close dialog on success
-
         } catch (error) {
             console.error('Error details:', error);
             setError('Failed to generate interview questions. Please try again. If the problem persists, try simplifying the job description.');
@@ -198,7 +171,7 @@ Position details:
                                 </div>
                             )}
                             <div className='flex gap-5 justify-end mt-4'>
-                                <Button type="button" variant='ghost' onClick={handleDialogClose}>
+                                <Button type="button" variant='ghost' onClick={() => setOpenDialog(false)}>
                                     Cancel
                                 </Button>
                                 <Button disabled={loading} type="submit">
